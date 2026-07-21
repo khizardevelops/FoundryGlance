@@ -1,0 +1,142 @@
+[
+  {
+    "id": "en_Latn",
+    "name": "English",
+    "direction": "LTR",
+    "tester": "Whereas disregard and contempt for human rights have resulted",
+    "poster_md": "Whereas the"
+  },
+  {
+    "id": "ar_Arab",
+    "name": "العربية",
+    "direction": "RTL",
+    "tester": "ولما كان تناسي حقوق الإنسان وازدراؤها قد أفضيا إلى أعمال همجية",
+    "poster_md": "ولما كانت"
+  },
+  {
+    "id": "ps_Arab",
+    "name": "پښتو",
+    "direction": "RTL",
+    "tester": "لکه څنګه چې د بشري حقوق تحقير او د هغو نه پيژندنه په وحشيانه",
+    "poster_md": "عمومي مجمع،"
+  },
+  {
+    "id": "ur_Arab",
+    "name": "اردو",
+    "direction": "RTL",
+    "tester": "تمام انسان آزاد اور حقوق و عزت کے اعتبار سے برابر پیدا ہوئے",
+    "poster_md": "دیکھیں کہ"
+  },
+  {
+    "id": "fa_Arab",
+    "name": "فارسی",
+    "direction": "RTL",
+    "tester": "تمام افراد بشر آزاد به دنیا می‌آیند و از لحاظ حیثیت و حقوق",
+    "poster_md": "از آنجا که"
+  },
+  {
+    "id": "he_Hebr",
+    "name": "עברית",
+    "direction": "RTL",
+    "tester": "כל בני האדם נולדו בני חורין ושווים בערכם ובזכויותיהם",
+    "poster_md": "הואיל והכרה"
+  },
+  {
+    "id": "hi_Deva",
+    "name": "हिन्दी",
+    "direction": "LTR",
+    "tester": "सभी मनुष्यों को गौरव और अधिकारों के विषय में जन्मजात स्वतन्त्रता",
+    "poster_md": "चूंकि मानव"
+  },
+  {
+    "id": "bn_Beng",
+    "name": "বাংলা",
+    "direction": "LTR",
+    "tester": "সমস্ত মানুষ স্বাধীনভাবে সমান মর্যাদা এবং অধিকার নিয়ে জন্মগ্রহণ করে",
+    "poster_md": "যেহেতু মানব"
+  },
+  {
+    "id": "zh_Hans",
+    "name": "简体中文",
+    "direction": "LTR",
+    "tester": "人人生而自由，在尊严和权利上一律平等。他们赋有理性和良心",
+    "poster_md": "鉴于对人"
+  },
+  {
+    "id": "ja_Jpan",
+    "name": "日本語",
+    "direction": "LTR",
+    "tester": "すべての人間は、生まれながらにして自由であり、かつ、尊厳と権利とについて平等である",
+    "poster_md": "人類の社会"
+  },
+  {
+    "id": "ko_Kore",
+    "name": "한국어",
+    "direction": "LTR",
+    "tester": "모든 인간은 태어날 때부터 자유로우며 그 존엄과 권리에 있어 동등하다",
+    "poster_md": "인류 가족"
+  },
+  {
+    "id": "ru_Cyrl",
+    "name": "Русский",
+    "direction": "LTR",
+    "tester": "Все люди рождаются свободными и равными в своем достоинстве и правах",
+    "poster_md": "Принимая во"
+  },
+  {
+    "id": "fr_Latn",
+    "name": "Français",
+    "direction": "LTR",
+    "tester": "Tous les êtres humains naissent libres et égaux en dignité et en droits",
+    "poster_md": "Considérant"
+  },
+  {
+    "id": "de_Latn",
+    "name": "Deutsch",
+    "direction": "LTR",
+    "tester": "Alle Menschen sind frei und gleich an Würde und Rechten geboren",
+    "poster_md": "Da die Aner"
+  },
+  {
+    "id": "es_Latn",
+    "name": "Español",
+    "direction": "LTR",
+    "tester": "Todos los seres humanos nacen libres e iguales en dignidad y derechos",
+    "poster_md": "Considerando"
+  },
+  {
+    "id": "el_Grek",
+    "name": "Ελληνικά",
+    "direction": "LTR",
+    "tester": "Όλοι οι άνθρωποι γεννιούνται ελεύθεροι και ίσοι στην αξιοπρέπεια",
+    "poster_md": "Επειδή η"
+  },
+  {
+    "id": "th_Thai",
+    "name": "ไทย",
+    "direction": "LTR",
+    "tester": "มนุษย์ทั้งหลายเกิดมามีอิสระและเสมอภาคกันในเกียรติศักดิ์และสิทธิ",
+    "poster_md": "โดยที่การ"
+  },
+  {
+    "id": "vi_Latn",
+    "name": "Tiếng Việt",
+    "direction": "LTR",
+    "tester": "Tất cả mọi người sinh ra đều được tự do và bình đẳng về nhân phẩm",
+    "poster_md": "Xét rằng"
+  },
+  {
+    "id": "tr_Latn",
+    "name": "Türkçe",
+    "direction": "LTR",
+    "tester": "Bütün insanlar özgür, onur ve haklar bakımından eşit doğarlar",
+    "poster_md": "İnsanlık"
+  },
+  {
+    "id": "am_Ethi",
+    "name": "አማርኛ",
+    "direction": "LTR",
+    "tester": "የሰው ልጅ ሁሉ ሲወለድ ነጻና በክብርና በመብት እኩል ነው",
+    "poster_md": "የሰው ልጆች"
+  }
+]
