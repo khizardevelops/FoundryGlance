@@ -2,21 +2,17 @@
 
 ## Summary
 
-Fixed the broken Konsta UI integration across all components. Previous AI agents had violated multiple rules from `docs/konsta-ui-guide.md` — manually overriding `--k-color-*` internal variables, duplicating surface tokens, using `<Glass>` instead of `<Card>`, custom CSS targeting Konsta internals, and using `onclick` instead of Konsta's `onClick` prop.
+Rewrote `README.md` from a placeholder to a full project README specific to the Tauri + SvelteKit port. Created `.github/workflows/release.yml` for CI builds on tagged releases. Updated `.agents/` to reflect both changes.
 
 ## Changed
 
-- `src/app.css`: Rewrote from 146→24 lines. Added `@import 'konsta/svelte/theme.css'`, replaced all `@theme` tokens with single `--color-brand-primary`, removed `:root` `--k-color-*` overrides, removed all custom helper CSS classes
-- `src/routes/+layout.svelte`: Removed `import 'konsta/svelte/theme.css'` (now in app.css)
-- `src/lib/components/AppToolbar.svelte`: Replaced `<Glass>` with `<Card>`, fixed Popover dismissal (removed `backdrop={false}`), replaced custom `<button>` lang items with Konsta `<ListItem>`
-- `src/lib/components/SettingsDialog.svelte`: Range inside `<ListItem>{#snippet inner()}` instead of `<li>` + custom CSS, Navbar buttons use `inline clear`, destructive ListButton uses `colors` prop, removed `<style>` block
-- `src/lib/components/FontCard.svelte`: Replaced `<Glass>` with `<Card>` using header/footer snippets, `onclick`→`onClick`
-- `src/lib/components/FontTile.svelte`: Replaced `<Glass>` with `<Card>` using header snippet
+- `README.md`: Full rewrite — features, tech stack, architecture tree, data flow, dual-mode frontend explanation, prerequisites, dev/build commands, usage, settings, and porting-notes comparison table against the original Flutter app.
+- `.github/workflows/release.yml`: New CI workflow. Triggers on `v*.*.*` tags and `workflow_dispatch`. Matrix builds on ubuntu-22.04, windows-latest, macos-latest. Uses `oven-sh/setup-bun@v2`, `swatinem/rust-cache@v2`, `tauri-apps/tauri-action@v0`. Attaches `.deb`/`.AppImage`/`.msi`/`.dmg` to a draft GitHub Release.
 
 ## Verified
 
-- `bun run check` passes with 0 errors and 0 warnings
-- Visual inspection: light mode, dark mode, settings dialog, language popover — all render correctly with native iOS styling
+- `bun run check` passes with 0 errors and 0 warnings (no source changes)
+- README written, reviewed, and committed
 
 ## Next Steps
 

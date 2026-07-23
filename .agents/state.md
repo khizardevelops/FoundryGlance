@@ -18,6 +18,11 @@ Tauri 2 + SvelteKit 5 + Konsta UI (iOS theme) font previewer. Rust backend scans
 - FontCard/FontTile: Use Konsta `<Card>` with `{#snippet header()}` and `{#snippet footer()}` for native iOS card appearance with automatic hairline dividers.
 - Svelte 5 runes: `$state`, `$derived`, `$effect` throughout; `$props()` without generic type args
 
+## Documentation
+
+- `README.md` rewritten for the Tauri + SvelteKit port with architecture, data flow, dual-mode frontend, porting notes, and full setup instructions.
+- `.github/workflows/release.yml` CI workflow: builds on tag push `v*.*.*` or manual dispatch, matrix over ubuntu-22.04 / windows-latest / macos-latest, auto-attaches `.deb`/`.AppImage`/`.msi`/`.dmg` to a draft GitHub Release.
+
 ## Missing Or Partial
 
 - Keyboard accessibility on interactive controls (toggle rows, draggable stops, drag-reorder handles)

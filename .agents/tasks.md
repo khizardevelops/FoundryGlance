@@ -8,6 +8,9 @@
 
 - Add keyboard accessibility to interactive controls in SettingsDialog (toggle rows)
 - Evaluate if Popover backdrop needs to close the language menu on click-outside properly
+- Push a test tag to verify the release CI workflow runs correctly
+
+## Done
 
 ## Done
 
