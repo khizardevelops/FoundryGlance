@@ -33,8 +33,6 @@
   });
 
   $effect(() => {
-    const familyName = family.name;
-
     loaded = false;
     loading = false;
     loadError = false;
@@ -42,7 +40,7 @@
     italicOn = false;
     weight = 400;
 
-    if (isFontLoaded(familyName)) {
+    if (isFontLoaded(family)) {
       loaded = true;
       return;
     }

@@ -26,6 +26,7 @@
     languages = [] as LanguageSample[],
     selectedLanguage = undefined as LanguageSample | undefined,
     onPickDirectory = (() => {}) as () => void,
+    onOpenExternalFonts = (() => {}) as () => void,
     onOpenSettings = (() => {}) as () => void,
     onTextChanged = ((_v: string) => {}) as (v: string) => void,
     onFontSizeChanged = ((_v: number) => {}) as (v: number) => void,
@@ -89,6 +90,20 @@
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
             Open
           {/if}
+        </Button>
+
+        <Button
+          inline
+          tonal
+          rounded
+          small
+          disabled={isScanning}
+          aria-label="Add web fonts"
+          class="shrink-0 gap-1.5 whitespace-nowrap font-semibold"
+          onClick={onOpenExternalFonts}
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 005.5 8a6 6 0 00.15 12H19a5 5 0 00.35-9.96zM13 13v4h-2v-4H8l4-4 4 4h-3z"/></svg>
+          Web
         </Button>
 
         <Searchbar

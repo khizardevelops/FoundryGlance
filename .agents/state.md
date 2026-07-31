@@ -4,12 +4,13 @@ Describe how the project works right now. Keep this present-tense and accurate. 
 
 ## Current State
 
-Tauri 2 + SvelteKit 5 + Konsta UI (iOS theme) font previewer. Rust backend scans directories for font files, extracts metadata via `fc-scan`, and serves settings persistence via JSON file. Frontend uses Konsta `<Card>` components for the toolbar and font cards, Konsta `<Page>` for the native iOS surface, and standard Konsta components throughout.
+Tauri 2 + SvelteKit 5 + Konsta UI (iOS theme) font previewer. Rust backend scans directories for font files with a native SFNT parser and serves settings persistence via JSON file. The frontend can also fetch Google Fonts or CORS-enabled CSS font stylesheets, sanitize their `@font-face` rules, derive metadata, and preview the remote families. Frontend uses Konsta `<Card>` components for the toolbar and font cards, Konsta `<Page>` for the native iOS surface, and standard Konsta components throughout.
 
 ## Implemented
 
 - Font scanning (directory pick or drag-drop): returns `ScanResult` with `families` (grouped), `font_count`, `folder_name`
-- Settings system: Tauri command `load_settings` / `save_settings` / `reset_settings`, persisted as JSON in app data dir. Current settings are only `default_font_size` and per-language `custom_texts`.
+- Web font importing: the Web popup accepts a Google Fonts family name, specimen/embed URL, or direct CSS stylesheet URL. It fetches and sanitizes font-face rules, supports multiple families, collapses Unicode subset rules into logical variants, and supports variable weight ranges.
+- Settings system: Tauri command `load_settings` / `save_settings` / `reset_settings`, persisted as JSON in app data dir. Current settings are `default_font_size`, `accent_color`, and per-language `custom_texts`.
 - Font preview rendering: Tauri-scanned fonts load bytes via `read_font_bytes`; browser-scanned fonts load directly from selected/dropped `File` objects. Blob URLs are cleaned up after `FontFace` loading.
 - Settings popup: Konsta `<Popup>`, `<Page>`, `<Navbar>`, `<List>`, `<ListInput>`, `<ListButton>`, and `<Range>` inside `<ListItem>{#snippet inner()}`. Range slider uses native Konsta iOS styling. Destructive reset button uses `colors` prop.
 - Layout: Konsta `<App theme="ios">` wrapper, shared `darkMode` store initialized from `window.matchMedia`, `.dark` class applied on the App root for Tailwind class-based dark variants, Preloader shown while loading settings
@@ -32,7 +33,7 @@ Tauri 2 + SvelteKit 5 + Konsta UI (iOS theme) font previewer. Rust backend scans
 
 1. App mounts → layout loads settings via Tauri invoke, sets dark mode from `matchMedia`
 2. Page mounts → loads languages, initializes preview text
-3. User picks folder → in Tauri, native dialog + `scan_directory`; in plain browser/Vite, hidden directory input + TypeScript SFNT metadata parser; families render as FontCards (grid) or FontTiles (list)
+3. User picks folder → in Tauri, native dialog + `scan_directory`; in plain browser/Vite, hidden directory input + TypeScript SFNT metadata parser. Alternatively, user opens Web → enters Google family/URL or CSS URL → stylesheet is fetched, sanitized, and parsed. Families render as FontCards (grid) or FontTiles (list).
 4. Settings dialog → plain object clone of current settings → edit in place → save writes back to Rust in Tauri or local in-memory settings in browser
 5. Konsta `<Page>` provides the native iOS light/dark surface
 
@@ -42,8 +43,9 @@ Tauri 2 + SvelteKit 5 + Konsta UI (iOS theme) font previewer. Rust backend scans
 
 ## Side Effects
 
-- Font loading via dynamic `<style>` injection leaks `@fontsource-variable` stylesheets per preview (not cleaned up)
-- Blob URLs from `@fontsource` conversion are cleaned up in `finally` block of font-loader helper
+- External font stylesheets are reconstructed from sanitized font-face descriptors and injected once per source; `clearFonts` removes them when switching sources.
+- Programmatically registered local `FontFace` instances are tracked and removed by `clearFonts`.
+- Blob URLs for local font bytes are cleaned up in the font-loader helper's `finally` block.
 - Svelte 5 proxy settings objects must not be passed to `structuredClone`; use a plain object clone for settings.
 
 ## Invariants

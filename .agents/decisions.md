@@ -14,6 +14,8 @@
 - **Shared dark mode**: Use `src/lib/utils/theme.ts` `darkMode` store for app-wide theme state. Layout passes `$darkMode` into Konsta `<App dark>` and applies the `.dark` class on the App root; pages/components should not keep independent dark state.
 - **Settings dialog deep copy**: Do not use `structuredClone()` on Svelte proxy props. Clone settings with a plain object copy for edit-in-place.
 - **Popover dismissal**: Use default backdrop behavior (do not set `backdrop={false}`) so clicking outside dismisses the popover.
+- **External font imports**: Accept Google Fonts names/specimen/embed URLs and direct HTTP(S) CSS URLs. Never inject a provider stylesheet verbatim; parse and reconstruct only sanitized `@font-face` rules, reject credentialed/data URLs, and require CORS-enabled stylesheet fetching.
+- **Remote font loading**: Store a sanitized external stylesheet on each imported `FontFamily`. Inject each source once and let CSS lazily fetch only the variants used by the previews; remove injected styles in `clearFonts`.
 
 ## Rejected Options
 

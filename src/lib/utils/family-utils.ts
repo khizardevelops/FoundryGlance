@@ -1,7 +1,17 @@
 import type { FontFamily, FontFile } from '$lib/types';
 
 export function availableWeights(family: FontFamily): number[] {
-  const weights = family.fonts.map((f) => f.weight);
+  const weights = family.fonts.flatMap((font) => {
+    const min = font.weight_min ?? font.weight;
+    const max = font.weight_max ?? font.weight;
+    if (min === max) return [font.weight];
+
+    const ranged = [min, max];
+    for (let weight = 100; weight <= 900; weight += 100) {
+      if (weight >= min && weight <= max) ranged.push(weight);
+    }
+    return ranged;
+  });
   return [...new Set(weights)].sort((a, b) => a - b);
 }
 

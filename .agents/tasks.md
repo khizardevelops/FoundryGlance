@@ -12,8 +12,7 @@
 
 ## Done
 
-## Done
-
+- Added web font importing from Google Fonts family names, Google specimen/embed URLs, and direct CORS-enabled CSS stylesheet URLs. Remote CSS is reduced to sanitized `@font-face` rules, Unicode subsets collapse into logical variants, variable weight ranges are supported, and the Web popup reports provider errors. Live Lora and multi-family Google CSS responses were verified; `npm run check`, `npm run build`, and an isolated-target `cargo check` pass.
 - Native iOS UI polish pass: toolbar hairline border+shadow, Range in proper ListItem inner-snippet context, language popover custom hoverable button rows with hover/active CSS, SettingsDialog with BlockTitle section headers, destructive Reset button (red), Searchbar separated from language list, FontCard/FontTile hairline separators and overflow-hidden Glass cards. `npm run check` passes 0 errors.
 - Fixed Settings crash by replacing `structuredClone(settings)` with a plain object clone
 - Added a plain-browser/Vite folder picker fallback using a hidden directory file input

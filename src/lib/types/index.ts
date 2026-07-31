@@ -4,13 +4,21 @@ export interface FontFile {
   family_name: string;
   subfamily: string;
   weight: number;
+  weight_min?: number;
+  weight_max?: number;
   is_italic: boolean;
   filename: string;
+}
+
+export interface ExternalFontStylesheet {
+  url: string;
+  css: string;
 }
 
 export interface FontFamily {
   name: string;
   fonts: FontFile[];
+  external_stylesheet?: ExternalFontStylesheet;
 }
 
 export interface ScanResult {

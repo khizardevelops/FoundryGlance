@@ -6,9 +6,11 @@
   import FontCard from '$lib/components/FontCard.svelte';
   import FontTile from '$lib/components/FontTile.svelte';
   import SettingsDialog from '$lib/components/SettingsDialog.svelte';
+  import ExternalFontDialog from '$lib/components/ExternalFontDialog.svelte';
   import DropZone from '$lib/components/DropZone.svelte';
   import { loadLanguages } from '$lib/utils/languages';
   import { scanBrowserFontFiles } from '$lib/utils/browser-fonts';
+  import { fetchExternalFonts } from '$lib/utils/external-fonts';
   import { getCurrentSettings, saveSettings } from '$lib/utils/settings';
   import { clearFonts } from '$lib/utils/font-loader';
   import { darkMode } from '$lib/utils/theme';
@@ -40,6 +42,8 @@
   let selectedLanguage = $state<LanguageSample | undefined>(undefined);
   let previewText = $state('');
   let showSettings = $state(false);
+  let showExternalFonts = $state(false);
+  let loadingMessage = $state('Scanning font files...');
 
   function setThemeMode(mode: 'light' | 'dark') {
     darkMode.set(mode === 'dark');
@@ -91,6 +95,7 @@
       });
       if (dir) {
         isScanning = true;
+        loadingMessage = 'Scanning font files...';
         selectedPath = dir;
         clearFonts();
         const result: ScanResult = await invoke('scan_directory', { path: dir });
@@ -106,6 +111,7 @@
 
   async function scanPath(path: string) {
     isScanning = true;
+    loadingMessage = 'Scanning font files...';
     selectedPath = path;
     clearFonts();
     try {
@@ -119,6 +125,7 @@
 
   async function scanFiles(files: File[]) {
     isScanning = true;
+    loadingMessage = 'Scanning font files...';
     clearFonts();
     try {
       const result = await scanBrowserFontFiles(files);
@@ -163,6 +170,19 @@
     isScanning = false;
   }
 
+  async function loadExternalFonts(source: string) {
+    isScanning = true;
+    loadingMessage = 'Fetching web fonts...';
+    try {
+      const result = await fetchExternalFonts(source);
+      clearFonts();
+      if (mounted) setScanResult(result);
+    } catch (error) {
+      if (mounted) isScanning = false;
+      throw error;
+    }
+  }
+
   const entries = $derived(merged ? familyEntries : fontEntries);
 
   function openSettings() { showSettings = true; }
@@ -203,6 +223,7 @@
           {languages}
           {selectedLanguage}
           onPickDirectory={pickDirectory}
+          onOpenExternalFonts={() => showExternalFonts = true}
           onOpenSettings={openSettings}
           onTextChanged={(v) => previewText = v}
           onFontSizeChanged={onFontSizeChanged}
@@ -224,7 +245,7 @@
         {#if isScanning}
           <div class="flex flex-col items-center justify-center py-16 gap-4">
             <Preloader class="w-8 h-8" />
-            <span class="text-sm font-semibold opacity-70">Scanning font files...</span>
+            <span class="text-sm font-semibold opacity-70">{loadingMessage}</span>
           </div>
         {/if}
 
@@ -234,8 +255,8 @@
               <svg class="w-12 h-12 mx-auto mb-3 opacity-20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
               </svg>
-              <p class="text-sm font-bold opacity-35">Select a folder to preview fonts</p>
-              <p class="text-[11px] opacity-20 mt-1">Supports .ttf and .otf files</p>
+              <p class="text-sm font-bold opacity-35">Open a folder or add web fonts</p>
+              <p class="text-[11px] opacity-20 mt-1">Supports .ttf, .otf, Google Fonts, and CSS font stylesheets</p>
             </div>
           </div>
         {/if}
@@ -281,6 +302,13 @@
       {languages}
       onClose={closeSettings}
       onSaved={onSettingsSaved}
+    />
+  {/if}
+
+  {#if showExternalFonts}
+    <ExternalFontDialog
+      onClose={() => showExternalFonts = false}
+      onLoad={loadExternalFonts}
     />
   {/if}
 </Page>

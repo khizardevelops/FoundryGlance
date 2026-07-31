@@ -17,6 +17,7 @@ This is a from-scratch port of the original [FoundryGlance Flutter app](https://
 - **Recursive scanning** — Point it at a directory and it finds every `.ttf` and `.otf` file, no matter how deeply nested.
 - **SFNT metadata parser** — Reads font family name, subfamily/style, weight, and italic flag directly from font binary tables (`name`, `OS/2`, `head`) — zero external dependencies. Implemented in both Rust (backend) and TypeScript (browser dev fallback).
 - **On-the-fly font loading** — Fonts are loaded via the `FontFace` JavaScript API with Blob URLs. No system-wide installation needed.
+- **Web font importing** — Enter a Google Fonts family, paste a Google Fonts specimen/embed URL, or use a CORS-enabled CSS font stylesheet. Remote variants appear in the same preview cards without being installed.
 - **Family grouping with merged view** — All variants of the same family are automatically grouped. Toggle between merged cards and individual variant tiles.
 - **Grid & list views** — Switch between a responsive card grid or a compact list layout. Adjustable columns (2–5).
 - **Live font size control** — Smooth slider (8–96) to instantly scale preview text.
@@ -70,11 +71,13 @@ foundryglance/
 │   │   │   ├── DropZone.svelte       # Drag-and-drop overlay
 │   │   │   ├── FontCard.svelte       # Merged family card with B/I/weight controls
 │   │   │   ├── FontTile.svelte       # Individual variant tile
+│   │   │   ├── ExternalFontDialog.svelte # Google/CSS web font importer
 │   │   │   └── SettingsDialog.svelte # Settings popup
 │   │   ├── types/
 │   │   │   └── index.ts             # TypeScript interfaces
 │   │   └── utils/
 │   │       ├── browser-fonts.ts      # Browser-based SFNT parser
+│   │       ├── external-fonts.ts     # Remote CSS fetch, sanitization, metadata
 │   │       ├── family-utils.ts       # Weight/italic helpers
 │   │       ├── font-loader.ts        # FontFace loading & Blob URL management
 │   │       ├── languages.ts          # Language data loader
@@ -110,10 +113,11 @@ foundryglance/
 ### Data flow
 
 1. **Scan**: User picks a folder → Tauri native dialog → Rust `scan_directory` recursively walks the directory, reads first 128 KB of each `.ttf`/`.otf` file, parses SFNT binary metadata, groups by family → returns `ScanResult` to frontend.
-2. **Render**: SvelteKit renders `FontCard` (merged) or `FontTile` (separate) components in a responsive grid or list.
-3. **Load**: Each card calls `read_font_bytes` to get full file bytes → creates a Blob URL → registers a `FontFace` with the correct `weight` and `style` → adds it to `document.fonts`.
-4. **Preview**: User types text, adjusts size/alignment, toggles bold/italic — all live, re-rendered by Svelte 5 reactivity.
-5. **Settings**: Edits in the settings popup are saved via Tauri commands to `~/.config/foundryglance/settings.json`.
+2. **Import web fonts (alternative)**: A Google Fonts family/URL or another CSS stylesheet is fetched in the frontend → only sanitized `@font-face` descriptors are retained → families and variants are derived from the CSS.
+3. **Render**: SvelteKit renders `FontCard` (merged) or `FontTile` (separate) components in a responsive grid or list.
+4. **Load**: Local cards call `read_font_bytes`, create Blob URLs, and register `FontFace` objects. Web cards install the sanitized font-face rules and let the browser fetch selected variants from the provider.
+5. **Preview**: User types text, adjusts size/alignment, toggles bold/italic — all live, re-rendered by Svelte 5 reactivity.
+6. **Settings**: Edits in the settings popup are saved via Tauri commands to `~/.config/foundryglance/settings.json`.
 
 ### Dual-mode frontend
 
@@ -167,8 +171,8 @@ The production binary will be in `src-tauri/target/release/` (or `.dmg`/`.msi`/`
 ## Usage
 
 1. Launch the app.
-2. Click **Open** (or drag a folder onto the window) and select a directory containing font files.
-3. The app recursively finds all `.ttf` and `.otf` files, parses their metadata, and groups them by family.
+2. Click **Open** (or drag a folder onto the window) and select a directory containing font files. Alternatively, click **Web** and enter a Google Fonts family or font stylesheet URL.
+3. The app scans local `.ttf`/`.otf` files or derives remote family metadata from the imported stylesheet, then groups variants by family.
 4. Type custom preview text in the search field, or pick a language preset from the popover.
 5. Adjust font size with the slider, toggle between grid/list and merged/separate views, and switch text alignment as needed.
 6. Click the settings gear to customize the accent color, default font size, and per-language preview text.

@@ -6,8 +6,9 @@
 
 ## Fragile Areas
 
-- **Font loading**: Dynamic `<style>` injection for `@fontsource-variable` sheets is not cleaned up on component destroy — multiple previews accumulate `<style>` tags in `<head>`.
-- **Blob URL management**: Blob URLs are cleaned up on unmount but if the font-loader helper throws before URL creation, cleanup may be missed (mitigated by try/finally).
+- **External providers**: Direct third-party CSS URLs must allow cross-origin `fetch` access. Google Fonts does; providers without CORS headers cannot currently be imported.
+- **External CSS parser**: Intentionally accepts only conventional `@font-face` descriptors with HTTP(S) `url()` sources. Data URLs and unusual CSS constructions are rejected rather than injected.
+- **Blob URL management**: Local font Blob URLs are revoked after `FontFace.load()` finishes; loaded faces remain registered until the source is cleared.
 - **Svelte 5 proxy + structuredClone**: `structuredClone` on Svelte 5 proxied state objects throws in the settings popup. SettingsDialog works around this with a plain object clone.
 
 ## Workarounds

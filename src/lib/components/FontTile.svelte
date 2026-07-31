@@ -30,13 +30,11 @@
   });
 
   $effect(() => {
-    const familyName = family.name;
-
     loaded = false;
     loading = false;
     loadError = false;
 
-    if (isFontLoaded(familyName)) {
+    if (isFontLoaded(family)) {
       loaded = true;
       return;
     }
@@ -89,6 +87,8 @@
           style="
             font-family: {loaded ? `'${family.name}'` : 'inherit'};
             font-size: {fontSize}px;
+            font-weight: {font.weight};
+            font-style: {font.is_italic ? 'italic' : 'normal'};
             direction: {rtl ? 'rtl' : 'ltr'};
             text-align: {textAlign};
             display: -webkit-box;
