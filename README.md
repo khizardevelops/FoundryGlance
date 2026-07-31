@@ -1,4 +1,4 @@
-# FoundryGlance
+# foundryglance
 
 A hyper-lightweight local font previewer for desktop — rebuilt in **Tauri 2 + SvelteKit 5**.
 
@@ -8,7 +8,7 @@ Recursively scan folders of `.ttf` and `.otf` files, preview custom text across 
 
 ## About
 
-This is a from-scratch port of the original [FoundryGlance Flutter app](https://github.com/khizardevelops/foundryglance-flutter) to the **Tauri** desktop framework with a **SvelteKit 5** frontend. Same purpose, same lightweight philosophy — rewritten for a native desktop experience with a fraction of the binary size.
+This is a from-scratch port of the original [foundryglance Flutter app](https://github.com/khizardevelops/foundryglance-flutter) to the **Tauri** desktop framework with a **SvelteKit 5** frontend. Same purpose, same lightweight philosophy — rewritten for a native desktop experience with a fraction of the binary size.
 
 ---
 
