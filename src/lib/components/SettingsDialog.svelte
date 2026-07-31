@@ -13,19 +13,9 @@
     Searchbar,
   } from 'konsta/svelte';
   import type { AppSettings, LanguageSample } from '$lib/types';
-  import { saveSettings, resetSettings, defaultSettings } from '$lib/utils/settings';
-  import { darkMode } from '$lib/utils/theme';
-
-  const THEME_COLORS = [
-    { name: 'Blue', value: '#007aff' },
-    { name: 'Purple', value: '#af52de' },
-    { name: 'Pink', value: '#ff2d55' },
-    { name: 'Red', value: '#ff3b30' },
-    { name: 'Orange', value: '#ff9500' },
-    { name: 'Yellow', value: '#ffcc00' },
-    { name: 'Green', value: '#34c759' },
-    { name: 'Gray', value: '#8e8e93' },
-  ];
+  import { settings as settingsStore, defaultSettings } from '$lib/stores/settings.svelte';
+  import { theme } from '$lib/stores/theme.svelte';
+  import { ACCENT_COLORS, DEFAULT_ACCENT } from '$lib/utils/accent';
 
   let {
     settings,
@@ -43,7 +33,8 @@
     return {
       default_font_size: value.default_font_size,
       custom_texts: { ...value.custom_texts },
-      accent_color: value.accent_color ?? '#007aff',
+      accent_color: value.accent_color ?? DEFAULT_ACCENT,
+      theme_mode: value.theme_mode ?? 'system',
     };
   }
 
@@ -65,21 +56,19 @@
   });
 
   async function save() {
-    const toSave: AppSettings = {
+    // The accent reaches the UI through the Konsta brand class the layout derives
+    // from settings.accent_color — there is no CSS variable to poke here.
+    await settingsStore.save({
       default_font_size: edit.default_font_size,
       custom_texts: { ...langCustomTexts },
       accent_color: edit.accent_color,
-    };
-    if (typeof document !== 'undefined') {
-      document.documentElement.style.setProperty('--color-brand-primary', toSave.accent_color);
-    }
-    await saveSettings(toSave);
+    });
     onSaved();
     onClose();
   }
 
   async function reset() {
-    await resetSettings();
+    await settingsStore.reset();
     edit = cloneSettings(defaultSettings);
     langCustomTexts = {};
     onSaved();
@@ -132,11 +121,11 @@
       <ListItem title="Accent Color">
         {#snippet inner()}
           <div class="flex items-center gap-3 overflow-x-auto py-3">
-            {#each THEME_COLORS as color}
+            {#each ACCENT_COLORS as color}
               <button
                 class="w-8 h-8 rounded-full shrink-0 border-[3px] transition-transform active:scale-95"
-                class:border-black={edit.accent_color === color.value && !$darkMode}
-                class:border-white={edit.accent_color === color.value && $darkMode}
+                class:border-black={edit.accent_color === color.value && !theme.dark}
+                class:border-white={edit.accent_color === color.value && theme.dark}
                 class:border-transparent={edit.accent_color !== color.value}
                 style="background-color: {color.value};"
                 aria-label="Set accent color to {color.name}"

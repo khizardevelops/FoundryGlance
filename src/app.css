@@ -5,8 +5,23 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Konsta's color plugin generates a `.k-color-brand-<name>` class with the full
+ * derived token set for every `--color-brand-*` declared here, at build time.
+ * The accent picker works by swapping one of those classes on the App root, so
+ * each selectable accent must be listed. Keep in sync with ACCENT_COLORS in
+ * src/lib/utils/accent.ts.
+ */
 @theme {
   --color-brand-primary: #007aff;
+  --color-brand-blue: #007aff;
+  --color-brand-purple: #af52de;
+  --color-brand-pink: #ff2d55;
+  --color-brand-red: #ff3b30;
+  --color-brand-orange: #ff9500;
+  --color-brand-yellow: #ffcc00;
+  --color-brand-green: #34c759;
+  --color-brand-gray: #8e8e93;
 }
 
 :root {

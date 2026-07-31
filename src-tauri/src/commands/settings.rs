@@ -10,19 +10,41 @@ fn settings_path() -> PathBuf {
     path
 }
 
+fn default_font_size() -> f64 {
+    28.0
+}
+
+fn default_accent_color() -> String {
+    "#007aff".to_string()
+}
+
+fn default_theme_mode() -> String {
+    "system".to_string()
+}
+
+/// Every field carries a serde default so a settings.json written by an older
+/// build (or a partially hand-edited one) still loads instead of being silently
+/// discarded and replaced with defaults.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
+    #[serde(default = "default_font_size")]
     pub default_font_size: f64,
+    #[serde(default)]
     pub custom_texts: std::collections::HashMap<String, String>,
+    #[serde(default = "default_accent_color")]
     pub accent_color: String,
+    /// "light" | "dark" | "system"
+    #[serde(default = "default_theme_mode")]
+    pub theme_mode: String,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            default_font_size: 28.0,
+            default_font_size: default_font_size(),
             custom_texts: std::collections::HashMap::new(),
-            accent_color: "#007aff".to_string(),
+            accent_color: default_accent_color(),
+            theme_mode: default_theme_mode(),
         }
     }
 }

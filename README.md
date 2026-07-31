@@ -17,19 +17,23 @@ This is a from-scratch port of the original [FoundryGlance Flutter app](https://
 - **Recursive scanning** — Point it at a directory and it finds every `.ttf` and `.otf` file, no matter how deeply nested.
 - **SFNT metadata parser** — Reads font family name, subfamily/style, weight, and italic flag directly from font binary tables (`name`, `OS/2`, `head`) — zero external dependencies. Implemented in both Rust (backend) and TypeScript (browser dev fallback).
 - **On-the-fly font loading** — Fonts are loaded via the `FontFace` JavaScript API with Blob URLs. No system-wide installation needed.
-- **Web font importing** — Enter a Google Fonts family, paste a Google Fonts specimen/embed URL, or use a CORS-enabled CSS font stylesheet. Remote variants appear in the same preview cards without being installed.
+- **Web font importing** — Enter a Google Fonts family, paste a Google Fonts specimen/share URL, or use a CORS-enabled CSS font stylesheet. Remote variants appear in the same preview cards without being installed.
+- **Bulk import** — Paste a whole Google Fonts `<link>` or `@import` embed snippet (the `preconnect` lines are ignored) to import every selected family at once, or list several families/URLs one per line. Sources that fail are reported without blocking the rest.
 - **Family grouping with merged view** — All variants of the same family are automatically grouped. Toggle between merged cards and individual variant tiles.
 - **Grid & list views** — Switch between a responsive card grid or a compact list layout. Adjustable columns (2–5).
 - **Live font size control** — Smooth slider (8–96) to instantly scale preview text.
 - **Bold / Italic / Weight sliders** — Per-family interactive controls to test different variants dynamically.
 - **RTL & complex script support** — Full bidirectional text support. Choose from 18 language presets (Arabic, Pashto, Hebrew, CJK, etc.) or type your own text.
+- **Per-card language** — Override the preview language on an individual font card from its globe button, so an Arabic face can be tested in Arabic while the rest of the grid stays in English. Overrides show the language code on the card, survive merged/separate view switches, and reset to the toolbar language from the same menu.
 - **Text alignment** — Start, center, end alignment controls.
 - **Custom per-language preview text** — Set persistent custom preview strings per language in settings.
 - **Drag & drop** — Drop a font folder directly onto the window to start scanning. Uses native Tauri drag-drop events.
 - **Native iOS-themed UI** — Konsta UI iOS theme with frosted glass cards, native-feeling controls, and automatic light/dark mode.
-- **Light / dark theme** — Toggle with a button. Persists across sessions via CSS media query.
-- **Configurable accent color** — Pick from 8 iOS-style accent colors in settings.
-- **Settings persistence** — Custom preview texts, default font size, and accent color saved to `~/.config/foundryglance/settings.json`.
+- **Light / dark theme** — Toggle with a button. Your choice is saved and wins over the OS preference on the next launch; until you pick one it follows `prefers-color-scheme` live.
+- **Configurable accent color** — Pick from 8 iOS-style accent colors in settings; buttons, badges, sliders, and segmented controls recolor live.
+- **Web import history** — Every web font import is recorded with a timestamp, its source URLs, families, and font count. Browse it in the Add Web Fonts popup, click any entry to re-import it, or clear the list.
+- **Settings persistence** — Custom preview texts, default font size, accent color, and theme choice saved to `~/.config/foundryglance/settings.json`; import history to `history.json` alongside it. Outside the Tauri runtime (`bun run dev`) both fall back to localStorage so a reload still keeps them.
+- **Session restore** — The last folder or web import is remembered and reloaded on launch, so a refresh does not empty the grid. Only the source is stored, never font data.
 - **Cross-platform** — Runs on macOS, Windows, and Linux.
 
 ---
@@ -40,6 +44,7 @@ This is a from-scratch port of the original [FoundryGlance Flutter app](https://
 |---|---|
 | Desktop framework | Tauri 2 (Rust) |
 | Frontend framework | SvelteKit 5 with Svelte 5 runes (`$state`, `$derived`, `$effect`) |
+| State management | Runes-based store singletons in `src/lib/stores/*.svelte.ts` |
 | Language | TypeScript |
 | UI components | Konsta UI 5 (iOS theme) |
 | Styling | Tailwind CSS v4 |
@@ -49,7 +54,8 @@ This is a from-scratch port of the original [FoundryGlance Flutter app](https://
 | File picking | `@tauri-apps/plugin-dialog` (native) / hidden `<input webkitdirectory>` (browser) |
 | Drag & drop | `@tauri-apps/api` `onDragDropEvent` (native) / HTML5 DnD (browser) |
 | Language data | `src/lib/assets/languages.json` (18 languages) |
-| Settings storage | JSON file via `dirs-next` config directory |
+| Settings & history storage | JSON files via `dirs-next` config directory (localStorage fallback in browser) |
+| Session restore | `SessionSource` pointer in localStorage, replayed on boot |
 | Build tool | Vite 6 |
 | Package manager | Bun |
 | Platforms | macOS, Windows, Linux |
@@ -71,18 +77,25 @@ foundryglance/
 │   │   │   ├── DropZone.svelte       # Drag-and-drop overlay
 │   │   │   ├── FontCard.svelte       # Merged family card with B/I/weight controls
 │   │   │   ├── FontTile.svelte       # Individual variant tile
-│   │   │   ├── ExternalFontDialog.svelte # Google/CSS web font importer
+│   │   │   ├── ExternalFontDialog.svelte # Web font importer + import history
+│   │   │   ├── LanguageMenu.svelte   # Shared language search/select popover
 │   │   │   └── SettingsDialog.svelte # Settings popup
 │   │   ├── types/
 │   │   │   └── index.ts             # TypeScript interfaces
+│   │   ├── stores/                  # App state (Svelte 5 runes singletons)
+│   │   │   ├── settings.svelte.ts    # AppSettings + persistence + accent class
+│   │   │   ├── theme.svelte.ts       # Dark mode
+│   │   │   ├── preview.svelte.ts     # Preview text, language, size, layout, overrides
+│   │   │   ├── library.svelte.ts     # Loaded font set + scan/import actions
+│   │   │   └── history.svelte.ts     # Web import history
 │   │   └── utils/
+│   │       ├── accent.ts             # Accent palette -> Konsta brand class
 │   │       ├── browser-fonts.ts      # Browser-based SFNT parser
 │   │       ├── external-fonts.ts     # Remote CSS fetch, sanitization, metadata
 │   │       ├── family-utils.ts       # Weight/italic helpers
 │   │       ├── font-loader.ts        # FontFace loading & Blob URL management
 │   │       ├── languages.ts          # Language data loader
-│   │       ├── settings.ts           # Settings CRUD (Tauri invocations)
-│   │       └── theme.ts             # Dark mode Svelte store
+│   │       └── time.ts               # Intl relative/absolute timestamps
 │   └── routes/
 │       ├── +layout.svelte           # Root layout (Konsta App, dark mode)
 │       ├── +layout.ts               # SSR disabled (SPA mode)
@@ -94,6 +107,7 @@ foundryglance/
 │   │   ├── lib.rs                 # Tauri builder, command registration
 │   │   ├── commands/
 │   │   │   ├── mod.rs
+│   │   │   ├── history.rs         # load_history, save_history, clear_history
 │   │   │   ├── scan.rs            # scan_directory, read_font_bytes
 │   │   │   └── settings.rs        # load_settings, save_settings, reset_settings
 │   │   └── parser/
@@ -113,11 +127,12 @@ foundryglance/
 ### Data flow
 
 1. **Scan**: User picks a folder → Tauri native dialog → Rust `scan_directory` recursively walks the directory, reads first 128 KB of each `.ttf`/`.otf` file, parses SFNT binary metadata, groups by family → returns `ScanResult` to frontend.
-2. **Import web fonts (alternative)**: A Google Fonts family/URL or another CSS stylesheet is fetched in the frontend → only sanitized `@font-face` descriptors are retained → families and variants are derived from the CSS.
+2. **Import web fonts (alternative)**: The input is parsed into a list of stylesheet URLs (embed snippets, family names, specimen/share links, raw URLs) → each is fetched in the frontend, in parallel → only sanitized `@font-face` descriptors are retained → families and variants are derived from the combined CSS, merging families that appear in more than one stylesheet.
 3. **Render**: SvelteKit renders `FontCard` (merged) or `FontTile` (separate) components in a responsive grid or list.
 4. **Load**: Local cards call `read_font_bytes`, create Blob URLs, and register `FontFace` objects. Web cards install the sanitized font-face rules and let the browser fetch selected variants from the provider.
 5. **Preview**: User types text, adjusts size/alignment, toggles bold/italic — all live, re-rendered by Svelte 5 reactivity.
-6. **Settings**: Edits in the settings popup are saved via Tauri commands to `~/.config/foundryglance/settings.json`.
+6. **Settings**: Edits in the settings popup are saved via Tauri commands to `~/.config/foundryglance/settings.json`. The accent color is applied by swapping a Konsta `.k-color-brand-*` class on the App root — Konsta bakes its color tokens at build time, so a runtime CSS variable would have no effect.
+7. **History**: Each successful web import is stamped and appended to `~/.config/foundryglance/history.json` (localStorage outside Tauri), replayable from the Add Web Fonts popup.
 
 ### Dual-mode frontend
 
@@ -171,7 +186,7 @@ The production binary will be in `src-tauri/target/release/` (or `.dmg`/`.msi`/`
 ## Usage
 
 1. Launch the app.
-2. Click **Open** (or drag a folder onto the window) and select a directory containing font files. Alternatively, click **Web** and enter a Google Fonts family or font stylesheet URL.
+2. Click **Open** (or drag a folder onto the window) and select a directory containing font files. Alternatively, click **Web** and enter a Google Fonts family, or paste a full Google Fonts `<link>` / `@import` embed snippet to bulk-import every selected family at once.
 3. The app scans local `.ttf`/`.otf` files or derives remote family metadata from the imported stylesheet, then groups variants by family.
 4. Type custom preview text in the search field, or pick a language preset from the popover.
 5. Adjust font size with the slider, toggle between grid/list and merged/separate views, and switch text alignment as needed.

@@ -3,15 +3,13 @@
     Badge,
     Button,
     Card,
-    List,
-    ListItem,
-    Popover,
     Preloader,
     Range,
     Searchbar,
     Segmented,
     SegmentedButton,
   } from 'konsta/svelte';
+  import LanguageMenu from '$lib/components/LanguageMenu.svelte';
   import type { LanguageSample, ViewMode, ThemeMode, TextAlign } from '$lib/types';
 
   let {
@@ -39,26 +37,8 @@
   } = $props();
 
   let langOpen = $state(false);
-  let langSearch = $state('');
   let langTarget = $state<HTMLElement | null>(null);
   const alignOptions: { v: TextAlign }[] = [{ v: 'left' }, { v: 'center' }, { v: 'right' }];
-
-  function filteredLangs(langs: LanguageSample[], query: string): LanguageSample[] {
-    if (!query) return langs;
-    const q = query.toLowerCase();
-    return langs.filter(
-      (l) =>
-        l.name.toLowerCase().includes(q) ||
-        l.id.toLowerCase().includes(q) ||
-        l.tester.toLowerCase().includes(q)
-    );
-  }
-
-  function selectLanguage(lang: LanguageSample) {
-    onLanguageChanged(lang);
-    langOpen = false;
-    langSearch = '';
-  }
 
   function toggleTheme() {
     onThemeModeChanged(themeMode === 'dark' ? 'light' : 'dark');
@@ -217,33 +197,13 @@
     </div>
 
     {#if langOpen}
-      <Popover
-        opened
+      <LanguageMenu
+        {languages}
+        selectedId={selectedLanguage?.id}
         target={langTarget || undefined}
-        angle
-        onBackdropClick={() => langOpen = false}
-        class="w-80 max-w-[calc(100vw-24px)]"
-      >
-        <div class="p-2">
-          <Searchbar
-            value={langSearch}
-            placeholder="Search languages"
-            clearButton
-            onInput={(e) => langSearch = (e.target as HTMLInputElement).value}
-            onClear={() => langSearch = ''}
-          />
-        </div>
-        <List inset strong class="!mt-0 !mb-2 max-h-72 overflow-y-auto">
-          {#each filteredLangs(languages, langSearch) as lang}
-            <ListItem
-              title={lang.name}
-              after={lang.is_rtl ? 'RTL' : 'LTR'}
-              onClick={() => selectLanguage(lang)}
-              class={lang.id === selectedLanguage?.id ? 'k-color-brand-primary' : ''}
-            />
-          {/each}
-        </List>
-      </Popover>
+        onSelect={onLanguageChanged}
+        onClose={() => langOpen = false}
+      />
     {/if}
   {/if}
 </Card>

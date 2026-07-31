@@ -2,8 +2,11 @@
   import { App, Preloader } from 'konsta/svelte';
   import '../app.css';
   import { onMount } from 'svelte';
-  import { loadSettings } from '$lib/utils/settings';
-  import { darkMode } from '$lib/utils/theme';
+  import { settings } from '$lib/stores/settings.svelte';
+  import { history } from '$lib/stores/history.svelte';
+  import { library } from '$lib/stores/library.svelte';
+  import { theme } from '$lib/stores/theme.svelte';
+  import { preview } from '$lib/stores/preview.svelte';
 
   let {
     children,
@@ -14,16 +17,30 @@
   let ready = $state(false);
 
   onMount(async () => {
-    const s = await loadSettings();
-    if (s.accent_color) {
-      document.documentElement.style.setProperty('--color-brand-primary', s.accent_color);
-    }
+    // Settings first: the theme preference and accent both come from them.
+    await settings.load();
+    theme.init(settings.current.theme_mode);
+    preview.init();
+    void history.load();
+
     ready = true;
+    // Rehydrating the last font set can hit the network, so it runs after first
+    // paint; the page shows its own scanning indicator meanwhile.
+    void library.restore();
   });
 </script>
 
 {#if ready}
-  <App theme="ios" dark={$darkMode} class={$darkMode ? 'dark' : ''}>
+  <!--
+    The accent class carries Konsta's derived `--k-color-*` tokens down the tree.
+    Konsta bakes those tokens at build time, so this class swap - not a CSS
+    variable assignment - is what actually changes the accent at runtime.
+  -->
+  <App
+    theme="ios"
+    dark={theme.dark}
+    class="{theme.dark ? 'dark' : ''} {settings.accentClass}"
+  >
     {#if children}{@render children()}{/if}
   </App>
 {:else}

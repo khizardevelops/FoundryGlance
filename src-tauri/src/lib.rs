@@ -12,6 +12,9 @@ pub fn run() {
             commands::load_settings,
             commands::save_settings,
             commands::reset_settings,
+            commands::load_history,
+            commands::save_history,
+            commands::clear_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

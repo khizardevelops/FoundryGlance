@@ -21,6 +21,9 @@ const GOOGLE_VARIANTS = [
   '900italic',
 ].join(',');
 
+const MAX_STYLESHEETS = 24;
+const MAX_STYLESHEET_LENGTH = 1_000_000;
+
 type ParsedWeight = {
   css: string;
   value: number;
@@ -35,43 +38,212 @@ type ParsedFace = {
   css: string;
 };
 
-export async function fetchExternalFonts(source: string): Promise<ScanResult> {
-  const stylesheetUrl = normalizeExternalFontSource(source);
+type Stylesheet = {
+  url: string;
+  css: string;
+};
+
+export type ExternalFontImport = {
+  result: ScanResult;
+  warnings: string[];
+  /** Normalized stylesheet URLs that were fetched successfully; recorded in history. */
+  sources: string[];
+};
+
+export type FetchExternalFontsOptions = {
+  onProgress?: (loaded: number, total: number) => void;
+};
+
+export async function fetchExternalFonts(
+  source: string,
+  options: FetchExternalFontsOptions = {}
+): Promise<ExternalFontImport> {
+  const urls = parseExternalFontSources(source);
+  const failures: { url: string; reason: string }[] = [];
+  let loaded = 0;
+
+  options.onProgress?.(0, urls.length);
+
+  const sheets = await Promise.all(
+    urls.map(async (url): Promise<Stylesheet | null> => {
+      try {
+        return { url, css: await fetchStylesheet(url) };
+      } catch (error) {
+        failures.push({ url, reason: errorMessage(error) });
+        return null;
+      } finally {
+        loaded += 1;
+        options.onProgress?.(loaded, urls.length);
+      }
+    })
+  );
+
+  const warnings = failures.map((failure) => `${describeSource(failure.url)}: ${failure.reason}`);
+  const fetched = sheets.filter((sheet): sheet is Stylesheet => sheet !== null);
+  if (!fetched.length) {
+    throw new Error(
+      urls.length === 1
+        ? capitalize(failures[0].reason)
+        : `None of the ${urls.length} stylesheets could be imported. ${warnings[0]}`
+    );
+  }
+
+  const { families, emptySheets } = collectFamilies(fetched);
+  if (!families.length) {
+    throw new Error('No usable @font-face rules were found in that stylesheet.');
+  }
+
+  for (const url of emptySheets) {
+    warnings.push(`${describeSource(url)}: no usable @font-face rules.`);
+  }
+
+  return {
+    result: buildScanResult(families, fetched),
+    warnings,
+    sources: fetched.map((sheet) => sheet.url),
+  };
+}
+
+async function fetchStylesheet(url: string): Promise<string> {
   let response: Response;
 
   try {
-    response = await fetch(stylesheetUrl, {
-      headers: { Accept: 'text/css,*/*;q=0.1' },
-    });
+    response = await fetch(url, { headers: { Accept: 'text/css,*/*;q=0.1' } });
   } catch {
-    throw new Error('Could not reach the font provider. Check the URL, connection, and CORS policy.');
+    // Providers answer an unknown family with a CORS-less 4xx, which surfaces
+    // here as a network failure, so name that cause too.
+    throw new Error('could not load the stylesheet — check the family name, the URL, and your connection.');
   }
 
   if (!response.ok) {
-    throw new Error(`The font provider returned HTTP ${response.status}.`);
+    throw new Error(`the font provider returned HTTP ${response.status}.`);
   }
 
   const css = await response.text();
-  if (css.length > 1_000_000) {
-    throw new Error('The remote stylesheet is too large to import.');
+  if (css.length > MAX_STYLESHEET_LENGTH) {
+    throw new Error('the remote stylesheet is too large to import.');
   }
 
-  return parseExternalFontStylesheet(css, response.url || stylesheetUrl);
+  return css;
+}
+
+/**
+ * Accepts anything a user is likely to paste: a family name, a stylesheet URL, a
+ * Google Fonts specimen/share link, a full `<link>` embed snippet (including the
+ * `preconnect` tags that ship with it), a `<style>@import url(...)</style>` block,
+ * or several of those separated by newlines.
+ */
+export function parseExternalFontSources(source: string): string[] {
+  const value = source.trim();
+  if (!value) {
+    throw new Error('Enter a Google Fonts family, stylesheet URL, or embed snippet.');
+  }
+
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  let firstError: string | null = null;
+
+  for (const candidate of extractCandidates(value)) {
+    let url: string;
+    try {
+      url = normalizeExternalFontSource(candidate);
+    } catch (error) {
+      firstError ??= errorMessage(error);
+      continue;
+    }
+
+    if (seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+  }
+
+  if (!urls.length) {
+    throw new Error(firstError ?? 'No font stylesheet URLs were found in that input.');
+  }
+
+  if (urls.length > MAX_STYLESHEETS) {
+    throw new Error(`Too many stylesheets in one import (${urls.length}); the limit is ${MAX_STYLESHEETS}.`);
+  }
+
+  return urls;
+}
+
+function extractCandidates(value: string): string[] {
+  const candidates: string[] = [];
+
+  for (const tag of value.match(/<link\b[^>]*>/gi) ?? []) {
+    const rel = tag.match(/\brel\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const relValue = (rel?.[1] ?? rel?.[2] ?? rel?.[3] ?? '').toLowerCase();
+    const isStylesheet =
+      !relValue ||
+      /\bstylesheet\b/.test(relValue) ||
+      (/\bpreload\b/.test(relValue) && /\bas\s*=\s*["']?style\b/i.test(tag));
+    if (!isStylesheet) continue;
+
+    const href = tag.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const link = href?.[1] ?? href?.[2] ?? href?.[3];
+    if (link) candidates.push(link);
+  }
+
+  const importPattern = /@import\s+(?:url\(\s*)?(?:"([^"]*)"|'([^']*)'|([^)\s;]+))/gi;
+  for (const match of value.matchAll(importPattern)) {
+    const imported = match[1] ?? match[2] ?? match[3];
+    if (imported) candidates.push(imported);
+  }
+
+  if (candidates.length) return candidates.map(decodeHtmlEntities);
+
+  if (/<link\b/i.test(value) || /@import\b/i.test(value)) {
+    throw new Error('That snippet has no stylesheet URL — include the <link rel="stylesheet"> or @import line.');
+  }
+
+  return splitPlainSources(value);
+}
+
+function splitPlainSources(value: string): string[] {
+  const sources: string[] = [];
+
+  for (const line of decodeHtmlEntities(value).split(/[\r\n]+/)) {
+    const trimmed = line.trim().replace(/[;,]+$/, '');
+    if (!trimmed) continue;
+
+    // URLs may legitimately contain commas (`family=Amiri:ital,wght@0,400`),
+    // so only comma-split input that reads as a list of family names.
+    if (looksLikeUrl(trimmed)) {
+      sources.push(trimmed);
+      continue;
+    }
+
+    for (const part of trimmed.split(',')) {
+      const family = part.trim();
+      if (family) sources.push(family);
+    }
+  }
+
+  return sources;
+}
+
+function looksLikeUrl(value: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ||
+    /^\/\//.test(value) ||
+    /^[\w-]+(?:\.[\w-]+)+\//.test(value);
 }
 
 export function normalizeExternalFontSource(source: string): string {
-  let value = source.trim();
-  if (!value) throw new Error('Enter a Google Fonts family or stylesheet URL.');
+  let value = decodeHtmlEntities(source).trim();
+  if (!value) throw new Error('Enter a Google Fonts family, stylesheet URL, or embed snippet.');
 
-  const href = value.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1];
-  const imported = value.match(/@import\s+(?:url\()?\s*["']?([^"')\s]+)["']?/i)?.[1];
-  value = (href || imported || value).replaceAll('&amp;', '&').trim();
+  // Checked before URL parsing: `Inter:wght@100..900` is a valid-looking URL to
+  // `new URL()` (scheme `inter:`) but is really a css2 family selection.
+  if (value.startsWith('//')) value = `https:${value}`;
+  else if (!looksLikeUrl(value)) return googleFamilyUrl(value);
+  else if (!/^[a-z][a-z0-9+.-]*:/i.test(value)) value = `https://${value}`;
 
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    return googleFontsUrl(value);
+    return googleFamilyUrl(value);
   }
 
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
@@ -83,65 +255,99 @@ export function normalizeExternalFontSource(source: string): string {
   }
 
   if (url.hostname === 'fonts.google.com') {
+    // The "Get embed code" / share links carry the whole selection in one param:
+    // ?selection.family=Amiri:wght@400;700|Mirza:wght@400
+    const selection = url.searchParams.get('selection.family');
+    if (selection) {
+      const specs = selection.split('|').map((spec) => spec.trim()).filter(Boolean);
+      if (specs.length) return googleCss2Url(specs);
+    }
+
     const parts = url.pathname.split('/').filter(Boolean);
     const specimenIndex = parts.indexOf('specimen');
     const encodedFamily = specimenIndex >= 0 ? parts[specimenIndex + 1] : undefined;
     if (!encodedFamily) {
       throw new Error('Use a Google Fonts specimen page, embed URL, or family name.');
     }
-    return googleFontsUrl(decodeURIComponent(encodedFamily).replaceAll('+', ' '));
+    return googleFamilyUrl(decodeURIComponent(encodedFamily).replaceAll('+', ' '));
   }
 
   return url.href;
 }
 
 export function parseExternalFontStylesheet(css: string, stylesheetUrl: string): ScanResult {
-  const faces: ParsedFace[] = [];
-  const facePattern = /@font-face\s*{([\s\S]*?)}/gi;
+  const sheets: Stylesheet[] = [{ url: stylesheetUrl, css }];
+  const { families } = collectFamilies(sheets);
 
-  for (const match of css.matchAll(facePattern)) {
-    const face = parseFace(match[1], stylesheetUrl);
-    if (face) faces.push(face);
-  }
-
-  if (!faces.length) {
+  if (!families.length) {
     throw new Error('No usable @font-face rules were found in that stylesheet.');
   }
 
-  const safeCss = faces.map((face) => face.css).join('\n\n');
-  const familyMap = new Map<string, Map<string, FontFile>>();
+  return buildScanResult(families, sheets);
+}
 
-  for (const face of faces) {
-    const familyFonts = familyMap.get(face.familyName) ?? new Map<string, FontFile>();
-    const variantKey = `${face.isItalic ? 'italic' : 'normal'}:${face.weight.min}-${face.weight.max}`;
+function collectFamilies(sheets: Stylesheet[]): { families: FontFamily[]; emptySheets: string[] } {
+  type Bucket = {
+    variants: Map<string, FontFile>;
+    css: string[];
+    sources: Set<string>;
+  };
 
-    if (!familyFonts.has(variantKey)) {
-      const subfamily = subfamilyName(face.weight.value, face.isItalic, face.weight.min !== face.weight.max);
-      familyFonts.set(variantKey, {
-        path: `external:${stylesheetUrl}#${encodeURIComponent(face.familyName)}-${variantKey}`,
-        family_name: face.familyName,
-        subfamily,
-        weight: face.weight.value,
-        weight_min: face.weight.min,
-        weight_max: face.weight.max,
-        is_italic: face.isItalic,
-        filename: `${face.familyName} ${subfamily} (web)`,
-      });
+  const familyMap = new Map<string, Bucket>();
+  const emptySheets: string[] = [];
+  const facePattern = /@font-face\s*{([\s\S]*?)}/gi;
+
+  for (const sheet of sheets) {
+    let faceCount = 0;
+
+    for (const match of sheet.css.matchAll(facePattern)) {
+      const face = parseFace(match[1], sheet.url);
+      if (!face) continue;
+      faceCount += 1;
+
+      const bucket = familyMap.get(face.familyName) ??
+        { variants: new Map<string, FontFile>(), css: [], sources: new Set<string>() };
+      bucket.css.push(face.css);
+      bucket.sources.add(sheet.url);
+
+      // Providers emit one rule per unicode subset; collapse those into a single
+      // variant while keeping every rule in the injected CSS.
+      const variantKey = `${face.isItalic ? 'italic' : 'normal'}:${face.weight.min}-${face.weight.max}`;
+      if (!bucket.variants.has(variantKey)) {
+        const subfamily = subfamilyName(face.weight.value, face.isItalic, face.weight.min !== face.weight.max);
+        bucket.variants.set(variantKey, {
+          path: `external:${sheet.url}#${encodeURIComponent(face.familyName)}-${variantKey}`,
+          family_name: face.familyName,
+          subfamily,
+          weight: face.weight.value,
+          weight_min: face.weight.min,
+          weight_max: face.weight.max,
+          is_italic: face.isItalic,
+          filename: `${face.familyName} ${subfamily} (web)`,
+        });
+      }
+
+      familyMap.set(face.familyName, bucket);
     }
 
-    familyMap.set(face.familyName, familyFonts);
+    if (!faceCount) emptySheets.push(sheet.url);
   }
 
-  const families: FontFamily[] = Array.from(familyMap, ([name, variants]) => ({
+  const families = Array.from(familyMap, ([name, bucket]) => ({
     name,
-    fonts: Array.from(variants.values()).sort((a, b) =>
+    fonts: Array.from(bucket.variants.values()).sort((a, b) =>
       a.weight - b.weight || Number(a.is_italic) - Number(b.is_italic)
     ),
-    external_stylesheet: { url: stylesheetUrl, css: safeCss },
+    external_stylesheet: {
+      url: `${Array.from(bucket.sources).sort().join(' ')}#${encodeURIComponent(name)}`,
+      css: bucket.css.join('\n\n'),
+    },
   })).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
-  const host = new URL(stylesheetUrl).hostname;
-  const provider = host === 'fonts.googleapis.com' ? 'Google Fonts' : host;
+  return { families, emptySheets };
+}
+
+function buildScanResult(families: FontFamily[], sheets: Stylesheet[]): ScanResult {
   const familyLabel = families.length <= 3
     ? families.map((family) => family.name).join(', ')
     : `${families.slice(0, 3).map((family) => family.name).join(', ')} +${families.length - 3}`;
@@ -149,8 +355,19 @@ export function parseExternalFontStylesheet(css: string, stylesheetUrl: string):
   return {
     families,
     font_count: families.reduce((count, family) => count + family.fonts.length, 0),
-    folder_name: `${provider} · ${familyLabel}`,
+    folder_name: `${providerLabel(sheets)} · ${familyLabel}`,
   };
+}
+
+function providerLabel(sheets: Stylesheet[]): string {
+  const hosts = Array.from(new Set(sheets.map((sheet) => hostOf(sheet.url))));
+  const names = hosts.map((host) => (host === 'fonts.googleapis.com' ? 'Google Fonts' : host));
+  return names.length <= 2 ? names.join(' + ') : `${names.length} sources`;
+}
+
+function googleFamilyUrl(spec: string): string {
+  // `Inter:wght@100..900` is a css2 selection; a bare name gets every static variant.
+  return spec.includes(':') ? googleCss2Url([spec]) : googleFontsUrl(spec);
 }
 
 function googleFontsUrl(familyName: string): string {
@@ -161,6 +378,19 @@ function googleFontsUrl(familyName: string): string {
 
   const encoded = encodeURIComponent(family).replaceAll('%20', '+');
   return `https://fonts.googleapis.com/css?family=${encoded}:${GOOGLE_VARIANTS}&display=swap`;
+}
+
+function googleCss2Url(specs: string[]): string {
+  const families = specs.map((spec) => {
+    const normalized = spec.trim().replace(/\s+/g, '+');
+    if (!normalized || normalized.length > 200 || !/^[A-Za-z0-9+.:,;@_-]+$/.test(normalized)) {
+      throw new Error(`"${spec}" is not a valid Google Fonts family selection.`);
+    }
+    return `family=${normalized}`;
+  });
+
+  if (!families.length) throw new Error('Enter a valid Google Fonts family name.');
+  return `https://fonts.googleapis.com/css2?${families.join('&')}&display=swap`;
 }
 
 function parseFace(body: string, stylesheetUrl: string): ParsedFace | null {
@@ -215,6 +445,14 @@ function decodeCssString(value: string): string {
     )
     .replace(/\\(["'\\])/g, '$1')
     .trim();
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replaceAll('&amp;', '&')
+    .replaceAll('&#38;', '&')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'");
 }
 
 function sanitizeSources(value: string, stylesheetUrl: string): string | null {
@@ -288,4 +526,34 @@ function subfamilyName(weight: number, italic: boolean, variable: boolean): stri
 
 function escapeCssString(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replace(/[\r\n\f]/g, ' ');
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+function describeSource(url: string): string {
+  let families: string[] = [];
+  try {
+    families = new URL(url).searchParams.getAll('family');
+  } catch {
+    return url;
+  }
+
+  if (!families.length) return hostOf(url);
+
+  const names = families.map((family) => family.split(':')[0].replaceAll('+', ' '));
+  return names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')} +${names.length - 3}`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Import failed.';
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

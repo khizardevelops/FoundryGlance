@@ -18,3 +18,8 @@ export function loadLanguages(): LanguageSample[] {
   );
   return _cache;
 }
+
+/** `en_Latn` -> `EN`. Used as a compact per-card language indicator. */
+export function languageShortCode(lang: LanguageSample): string {
+  return (lang.id.split('_')[0] || lang.id).toUpperCase();
+}

@@ -1,5 +1,19 @@
 <script lang="ts">
-  import { BlockTitle, Button, List, ListInput, Navbar, Page, Popup, Preloader } from 'konsta/svelte';
+  import {
+    BlockTitle,
+    Button,
+    List,
+    ListButton,
+    ListInput,
+    ListItem,
+    Navbar,
+    Page,
+    Popup,
+    Preloader,
+  } from 'konsta/svelte';
+  import { history } from '$lib/stores/history.svelte';
+  import { absoluteTime, relativeTime } from '$lib/utils/time';
+  import type { ImportHistoryEntry } from '$lib/types';
 
   let {
     onClose = () => {},
@@ -9,24 +23,47 @@
     onLoad?: (source: string) => Promise<void>;
   } = $props();
 
+  const PLACEHOLDER = `Inter
+<link href="https://fonts.googleapis.com/css2?family=Amiri&family=Mirza&display=swap" rel="stylesheet">`;
+
   let source = $state('');
   let loading = $state(false);
   let error = $state('');
 
-  async function submit(event?: SubmitEvent) {
-    event?.preventDefault();
-    if (loading || !source.trim()) return;
-
+  async function run(value: string) {
     loading = true;
     error = '';
     try {
-      await onLoad(source);
+      await onLoad(value);
       onClose();
     } catch (reason) {
       error = reason instanceof Error ? reason.message : 'Could not import that font source.';
     } finally {
       loading = false;
     }
+  }
+
+  async function submit(event?: SubmitEvent) {
+    event?.preventDefault();
+    if (loading || !source.trim()) return;
+    await run(source);
+  }
+
+  async function reimport(entry: ImportHistoryEntry) {
+    if (loading) return;
+    await run(entry.sources.join('\n'));
+  }
+
+  function familySummary(entry: ImportHistoryEntry): string {
+    const names = entry.families;
+    if (names.length <= 3) return names.join(', ');
+    return `${names.slice(0, 3).join(', ')} +${names.length - 3}`;
+  }
+
+  function countSummary(entry: ImportHistoryEntry): string {
+    const fonts = `${entry.font_count} ${entry.font_count === 1 ? 'font' : 'fonts'}`;
+    const families = entry.families.length === 1 ? '1 family' : `${entry.families.length} families`;
+    return `${fonts} · ${families}`;
   }
 </script>
 
@@ -51,18 +88,14 @@
       <BlockTitle>Font Source</BlockTitle>
       <List inset strong>
         <ListInput
-          type="text"
-          label="Google Fonts family or CSS URL"
-          placeholder="Inter"
+          type="textarea"
+          label="Family names, CSS URLs, or an embed snippet"
+          placeholder={PLACEHOLDER}
+          inputStyle="min-height: 7.5rem; font-family: ui-monospace, monospace; font-size: 0.8rem;"
           value={source}
           disabled={loading}
-          clearButton
           onInput={(event) => {
-            source = (event.target as HTMLInputElement).value;
-            error = '';
-          }}
-          onClear={() => {
-            source = '';
+            source = (event.target as HTMLTextAreaElement).value;
             error = '';
           }}
         />
@@ -73,8 +106,13 @@
       {/if}
 
       <div class="mx-6 mt-5 text-sm opacity-60 space-y-2">
-        <p>Enter a family name such as <span class="font-semibold">Inter</span>, a Google Fonts specimen or embed URL, or a direct CSS stylesheet URL.</p>
-        <p>Family names load the standard weights and italic styles that Google Fonts provides. Other providers must allow cross-origin stylesheet access.</p>
+        <p>
+          Paste the whole <span class="font-semibold">&lt;link&gt;</span> or
+          <span class="font-semibold">@import</span> embed code from Google Fonts to import every
+          selected family at once — the <span class="font-semibold">preconnect</span> lines are ignored.
+        </p>
+        <p>You can also enter family names, a specimen or share URL, or direct CSS stylesheet URLs, one per line.</p>
+        <p>Other providers must allow cross-origin stylesheet access.</p>
       </div>
 
       <div class="mx-6 mt-5 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] p-3 text-xs opacity-60">
@@ -83,5 +121,29 @@
 
       <button type="submit" class="sr-only" aria-hidden="true" tabindex="-1">Add web fonts</button>
     </form>
+
+    {#if history.entries.length}
+      <BlockTitle>Import History</BlockTitle>
+      <List inset strong class="max-h-[40vh] overflow-y-auto">
+        {#each history.entries as entry (entry.id)}
+          <ListItem
+            link
+            title={familySummary(entry)}
+            subtitle={countSummary(entry)}
+            text={`${relativeTime(entry.imported_at)} · ${absoluteTime(entry.imported_at)}`}
+            onClick={() => reimport(entry)}
+          />
+        {/each}
+      </List>
+
+      <List inset strong>
+        <ListButton
+          onClick={() => history.clear()}
+          colors={{ textIos: 'text-red-500', textMaterial: 'text-red-500' }}
+        >
+          Clear History
+        </ListButton>
+      </List>
+    {/if}
   </Page>
 </Popup>
